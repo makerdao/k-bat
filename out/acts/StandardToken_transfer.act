@@ -1,0 +1,20 @@
+behaviour transfer of StandardToken
+interface transfer(address _to, uint256 _value)
+
+types
+  FromBal : uint256
+  ToBal   : uint256
+
+storage
+  balances[CALLER_ID] |-> FromBal => FromBal - _value
+  balances[_to]        |-> ToBal => ToBal + _value
+
+iff
+  VCallValue == 0
+
+if
+  FromBal >= _value
+  _value > 0
+  CALLER_ID =/= _to
+
+returns 1 
