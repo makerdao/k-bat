@@ -13,5 +13,5 @@
       "src": "src/Bat.sol"
     }
   },
-  "dapp_root": "bat"
+  "dapp_root": "bat-token"
 }
