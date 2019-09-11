@@ -1,4 +1,4 @@
-pragma solidity ^0.4.25;
+pragma solidity >=0.4.25;
 
 contract SafeMath {
 
@@ -24,11 +24,11 @@ contract SafeMath {
 
 contract Token {
     uint256 public totalSupply;
-    function balanceOf(address _owner) constant returns (uint256 balance);
-    function transfer(address _to, uint256 _value) returns (bool success);
-    function transferFrom(address _from, address _to, uint256 _value) returns (bool success);
-    function approve(address _spender, uint256 _value) returns (bool success);
-    function allowance(address _owner, address _spender) constant returns (uint256 remaining);
+    function balanceOf(address _owner) public view returns (uint256 balance);
+    function transfer(address _to, uint256 _value) public returns (bool success);
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success);
+    function approve(address _spender, uint256 _value) public returns (bool success);
+    function allowance(address _owner, address _spender) public view returns (uint256 remaining);
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 }
@@ -37,40 +37,40 @@ contract Token {
 /*  ERC 20 token */
 contract StandardToken is Token {
 
-    function transfer(address _to, uint256 _value) returns (bool success) {
+    function transfer(address _to, uint256 _value) public returns (bool success) {
       if (balances[msg.sender] >= _value && _value > 0) {
         balances[msg.sender] -= _value;
         balances[_to] += _value;
-        Transfer(msg.sender, _to, _value);
+        emit Transfer(msg.sender, _to, _value);
         return true;
       } else {
         return false;
       }
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
       if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && _value > 0) {
         balances[_to] += _value;
         balances[_from] -= _value;
         allowed[_from][msg.sender] -= _value;
-        Transfer(_from, _to, _value);
+        emit Transfer(_from, _to, _value);
         return true;
       } else {
         return false;
       }
     }
 
-    function balanceOf(address _owner) constant returns (uint256 balance) {
+    function balanceOf(address _owner) public view returns (uint256 balance) {
         return balances[_owner];
     }
 
-    function approve(address _spender, uint256 _value) returns (bool success) {
+    function approve(address _spender, uint256 _value) public returns (bool success) {
         allowed[msg.sender][_spender] = _value;
-        Approval(msg.sender, _spender, _value);
+        emit Approval(msg.sender, _spender, _value);
         return true;
     }
 
-    function allowance(address _owner, address _spender) constant returns (uint256 remaining) {
+    function allowance(address _owner, address _spender) public view returns (uint256 remaining) {
       return allowed[_owner][_spender];
     }
 
@@ -105,11 +105,11 @@ contract BAToken is StandardToken, SafeMath {
     event CreateBAT(address indexed _to, uint256 _value);
 
     // constructor
-    function BAToken(
+    constructor (
         address _ethFundDeposit,
         address _batFundDeposit,
         uint256 _fundingStartBlock,
-        uint256 _fundingEndBlock)
+        uint256 _fundingEndBlock) public
     {
       isFinalized = false;                   //controls pre through crowdsale state
       ethFundDeposit = _ethFundDeposit;
@@ -118,51 +118,25 @@ contract BAToken is StandardToken, SafeMath {
       fundingEndBlock = _fundingEndBlock;
       totalSupply = batFund;
       balances[batFundDeposit] = batFund;    // Deposit Brave Intl share
-      CreateBAT(batFundDeposit, batFund);  // logs Brave Intl fund
+      emit CreateBAT(batFundDeposit, batFund);  // logs Brave Intl fund
     }
 
     /// @dev Accepts ether and creates new BAT tokens.
     function createTokens() payable external {
-      if (isFinalized) throw;
-      if (block.number < fundingStartBlock) throw;
-      if (block.number > fundingEndBlock) throw;
-      if (msg.value == 0) throw;
+      if (isFinalized) revert();
+      if (block.number < fundingStartBlock) revert();
+      if (block.number > fundingEndBlock) revert();
+      if (msg.value == 0) revert();
 
       uint256 tokens = safeMult(msg.value, tokenExchangeRate); // check that we're not over totals
       uint256 checkedSupply = safeAdd(totalSupply, tokens);
 
       // return money if something goes wrong
-      if (tokenCreationCap < checkedSupply) throw;  // odd fractions won't be found
+      if (tokenCreationCap < checkedSupply) revert();  // odd fractions won't be found
 
       totalSupply = checkedSupply;
       balances[msg.sender] += tokens;  // safeAdd not needed; bad semantics to use here
-      CreateBAT(msg.sender, tokens);  // logs token creation
-    }
-
-    /// @dev Ends the funding period and sends the ETH home
-    function finalize() external {
-      if (isFinalized) throw;
-      if (msg.sender != ethFundDeposit) throw; // locks finalize to the ultimate ETH owner
-      if(totalSupply < tokenCreationMin) throw;      // have to sell minimum to move to operational
-      if(block.number <= fundingEndBlock && totalSupply != tokenCreationCap) throw;
-      // move to operational
-      isFinalized = true;
-      if(!ethFundDeposit.send(this.balance)) throw;  // send the eth to Brave International
-    }
-
-    /// @dev Allows contributors to recover their ether in the case of a failed funding campaign.
-    function refund() external {
-      if(isFinalized) throw;                       // prevents refund if operational
-      if (block.number <= fundingEndBlock) throw; // prevents refund until sale period is over
-      if(totalSupply >= tokenCreationMin) throw;  // no refunds if we sold enough
-      if(msg.sender == batFundDeposit) throw;    // Brave Intl not entitled to a refund
-      uint256 batVal = balances[msg.sender];
-      if (batVal == 0) throw;
-      balances[msg.sender] = 0;
-      totalSupply = safeSubtract(totalSupply, batVal); // extra safe
-      uint256 ethVal = batVal / tokenExchangeRate;     // should be safe; previous throws covers edges
-      LogRefund(msg.sender, ethVal);               // log it 
-      if (!msg.sender.send(ethVal)) throw;       // if you're using a contract; make sure it works with .send gas limits
+      emit CreateBAT(msg.sender, tokens);  // logs token creation
     }
 
 }

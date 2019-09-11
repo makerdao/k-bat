@@ -5,16 +5,11 @@ types
   Approval : uint256
   FromBal  : uint256
   ToBal    : uint256
-  Paused   : uint8
-  Filler   : uint8
-  Fillerr  : uint8
-  Fillerrr : address
 
 storage
   balances[from]             |-> FromBal => FromBal - value
   balances[to]               |-> ToBal => ToBal + value
   approvals[from][CALLER_ID] |-> Approval => Approval - value
-  filler_fillerr_paused_fillerrr |-> #WordPackUInt8UInt8UInt8Addr(Filler, Fillerr, Paused, Fillerrr)
 
 iff in range uint256
   FromBal - value
@@ -22,11 +17,13 @@ iff in range uint256
   Approval - value
 
 iff
-  Paused == 0
   VCallValue == 0
-  to =/= 0
 
 if
+  FromBal >= value
+  Approval >= value
+  value > 0
+  CALLER_ID =/= to
   from =/= to
 
 returns 1
