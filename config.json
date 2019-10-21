@@ -9,6 +9,12 @@
     ]
   },
   "implementations": {
+    "GemJoin": {
+      "src": "src/Join.sol"
+    },
+    "Vat": {
+      "src": "src/vat.sol"
+    },
     "StandardToken": {
       "src": "src/Bat.sol"
     }

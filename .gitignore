@@ -1,1 +1,4 @@
+*~
+*.timestamp
+tmp/
 out/*
